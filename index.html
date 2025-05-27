@@ -24,35 +24,244 @@
             object-fit: cover;      
             display: block;
         }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+            z-index: 5;
+            cursor: pointer;
+        }
+
+
     </style>
 </head>
 <body>
     <video 
         id="videoPlayer" 
         autoplay
+        muted
         loop 
         playsinline 
         preload="auto">
         <source src="https://storage.googleapis.com/resemble-sampletables/resemble-dfd-meeting-integration-audio-temp-files/Test_DFD.mp4" type="video/mp4">
     </video>
 
+    <!-- Invisible overlay to capture any interaction -->
+    <div id="overlay" class="overlay"></div>
+
+
     <script>
         const video = document.getElementById('videoPlayer');
+        const overlay = document.getElementById('overlay');
         
-        // Force play when page loads
-        window.addEventListener('load', () => {
-            video.play();
+        let hasUserInteracted = false;
+        let videoStarted = false;
+        let audioEnabled = false;
+
+        function updateStatus(message) {
+            console.log(message);
+        }
+
+        // Function to attempt video playback with audio
+        async function attemptPlayWithAudio() {
+            try {
+                video.muted = false;
+                await video.play();
+                videoStarted = true;
+                audioEnabled = true;
+                updateStatus('Video playing with audio');
+                overlay.style.display = 'none';
+                return true;
+            } catch (error) {
+                console.log('Play with audio failed:', error.message);
+                return false;
+            }
+        }
+
+        // Function to attempt muted video playback
+        async function attemptPlayMuted() {
+            try {
+                video.muted = true;
+                await video.play();
+                videoStarted = true;
+                updateStatus('Video playing (muted) - Click anywhere to enable audio');
+                return true;
+            } catch (error) {
+                console.log('Muted play failed:', error.message);
+                return false;
+            }
+        }
+
+        // Function to enable audio after user interaction
+        async function enableAudio() {
+            if (videoStarted && !audioEnabled) {
+                try {
+                    video.muted = false;
+                    audioEnabled = true;
+                    updateStatus('Video playing with audio');
+                    overlay.style.display = 'none';
+                } catch (error) {
+                    console.log('Audio enable failed:', error);
+                }
+            }
+        }
+
+        // Handle any click/touch interaction
+        function handleUserInteraction() {
+            hasUserInteracted = true;
+            
+            if (!videoStarted) {
+                attemptPlayWithAudio();
+            } else if (!audioEnabled) {
+                enableAudio();
+            }
+        }
+
+        // Add interaction listeners
+        overlay.addEventListener('click', handleUserInteraction);
+        overlay.addEventListener('touchstart', handleUserInteraction);
+        document.addEventListener('keydown', handleUserInteraction);
+        document.addEventListener('mousedown', handleUserInteraction);
+
+        // Aggressive auto-start strategies
+        async function tryAllStrategies() {
+            updateStatus('Attempting autoplay with audio...');
+            
+            // Strategy 1: Try with audio first
+            if (await attemptPlayWithAudio()) {
+                return;
+            }
+
+            updateStatus('Attempting muted autoplay...');
+            
+            // Strategy 2: Try muted
+            if (await attemptPlayMuted()) {
+                // Try to enable audio after a short delay
+                setTimeout(async () => {
+                    if (!audioEnabled) {
+                        updateStatus('Attempting to enable audio...');
+                        await enableAudio();
+                    }
+                }, 500);
+                return;
+            }
+
+            updateStatus('Autoplay failed - Click anywhere to start');
+        }
+
+        // Try when page loads
+        window.addEventListener('load', async () => {
+            await tryAllStrategies();
         });
         
-        // Ensure video keeps playing
-        video.addEventListener('loadeddata', () => {
-            video.play();
+        // Try when video data is loaded
+        video.addEventListener('loadeddata', async () => {
+            if (!videoStarted) {
+                await tryAllStrategies();
+            }
+        });
+
+        // Try when video can play
+        video.addEventListener('canplay', async () => {
+            if (!videoStarted) {
+                await tryAllStrategies();
+            }
         });
         
-        // Handle any pause events and restart
-        video.addEventListener('pause', () => {
-            video.play();
+        // Handle pause events and restart
+        video.addEventListener('pause', async () => {
+            if (videoStarted && !video.ended) {
+                setTimeout(async () => {
+                    if (video.paused && !video.ended) {
+                        if (audioEnabled) {
+                            await attemptPlayWithAudio();
+                        } else {
+                            await attemptPlayMuted();
+                        }
+                    }
+                }, 100);
+            }
         });
+
+        // Handle video errors
+        video.addEventListener('error', (e) => {
+            console.error('Video error:', e);
+            updateStatus('Video error occurred');
+        });
+
+        // Simulate user interaction for bot environments
+        setTimeout(() => {
+            if (!videoStarted || !audioEnabled) {
+                updateStatus('Bot environment detected - simulating interaction...');
+                
+                // Create multiple types of synthetic events
+                const events = [
+                    new MouseEvent('click', { bubbles: true, cancelable: true }),
+                    new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+                    new TouchEvent('touchstart', { bubbles: true, cancelable: true }),
+                    new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' })
+                ];
+                
+                events.forEach(event => {
+                    try {
+                        document.dispatchEvent(event);
+                    } catch (e) {
+                        // TouchEvent might not be supported in all environments
+                    }
+                });
+                
+                // Force interaction flag and try again
+                hasUserInteracted = true;
+                handleUserInteraction();
+            }
+        }, 1000);
+
+        // Aggressive fallback - keep trying every few seconds
+        const aggressiveRetry = setInterval(async () => {
+            if (!videoStarted) {
+                updateStatus('Retrying playback...');
+                await tryAllStrategies();
+            } else if (!audioEnabled) {
+                updateStatus('Retrying audio enable...');
+                await enableAudio();
+            } else {
+                clearInterval(aggressiveRetry);
+            }
+        }, 3000);
+
+        // Stop aggressive retry after 30 seconds
+        setTimeout(() => {
+            clearInterval(aggressiveRetry);
+            if (!videoStarted) {
+                updateStatus('Manual interaction required');
+            }
+        }, 30000);
+
+        // Additional bot-specific workarounds
+        if (window.location.href.includes('recall.ai') || 
+            navigator.userAgent.includes('HeadlessChrome') ||
+            window.navigator.webdriver) {
+            
+            updateStatus('Bot environment - applying workarounds...');
+            
+            // For bot environments, try more aggressive approaches
+            setTimeout(async () => {
+                // Force play regardless of policy
+                video.muted = false;
+                try {
+                    await video.play();
+                    videoStarted = true;
+                    audioEnabled = true;
+                    updateStatus('Bot autoplay successful');
+                } catch (e) {
+                    console.log('Bot autoplay failed:', e);
+                }
+            }, 500);
+        }
     </script>
 </body>
 </html>
