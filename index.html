@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        video {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;      
+            display: block;
+        }
+        
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <video id="videoPlayer" autoplay loop playsinline>
+        <source src="https://storage.googleapis.com/resemble-sampletables/resemble-dfd-meeting-integration-audio-temp-files/Test_DFD.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    
+    <div id="errorMessage" class="error-message">
+        <h2>Video Loading Error</h2>
+        <p>Please check your video URL and try again.</p>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // Show error message if video fails to load
+        video.addEventListener('error', function() {
+            console.error('Video failed to load');
+            errorMessage.style.display = 'block';
+        });
+        
+        // Hide error message when video loads successfully
+        video.addEventListener('loadeddata', function() {
+            console.log('Video loaded successfully');
+            errorMessage.style.display = 'none';
+        });
+        
+        // Ensure video plays (some browsers block autoplay)
+        video.addEventListener('loadedmetadata', function() {
+            video.play().catch(function(error) {
+                console.log('Autoplay failed:', error);
+                // Try to play without sound
+                video.muted = true;
+                video.play();
+            });
+        });
+        
+        // Debug info
+        console.log('Video player initialized');
+        console.log('Video source:', video.querySelector('source').src);
+    </script>
+</body>
+</html>
