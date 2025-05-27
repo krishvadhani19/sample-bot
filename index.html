@@ -72,7 +72,6 @@
             video.play().catch(function(error) {
                 console.log('Autoplay failed:', error);
                 // Try to play without sound
-                video.muted = true;
                 video.play();
             });
         });
