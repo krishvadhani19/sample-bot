@@ -79,9 +79,10 @@
             }
         }
 
-        window.addEventListener('load', () => {
+        window.addEventListener('load', async () => {
             logStatus('Page loaded');
-            attemptPlay();
+            await attemptPlay();
+            enableAudio()
         });
 
         video.addEventListener('canplay', () => {
